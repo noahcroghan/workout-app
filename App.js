@@ -1,207 +1,148 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
-  Button,
   Alert,
   ScrollView,
   TextInput,
+  Image,
+  Linking,
 } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import * as SQLite from "expo-sqlite";
+// import * as SQLite from "expo-sqlite";
 import * as Validator from "./Validator.js";
 
-// const db = SQLite.openDatabase("workout.db");
+const Stack = createNativeStackNavigator();
 
-// Dummy Data
-// In this instance, reps is a TOTAL amount
-const workouts = [
-  {
-    date: "2024-01-01",
-    name: "Bench",
-    type: "Upper Body",
-    sets: 3,
-    reps: 15,
-    weight: 100,
-  },
-  {
-    date: "2024-01-02",
-    name: "Squat",
-    type: "Lower Body",
-    sets: 4,
-    reps: 20,
-    weight: 150,
-  },
-  {
-    date: "2024-01-03",
-    name: "Deadlift",
-    type: "Lower Body",
-    sets: 4,
-    reps: 12,
-    weight: 200,
-  },
-  {
-    date: "2024-01-04",
-    name: "Push Press",
-    type: "Upper Body",
-    sets: 3,
-    reps: 15,
-    weight: 85,
-  },
-  {
-    date: "2024-01-05",
-    name: "Deadlift",
-    type: "Lower Body",
-    sets: 3,
-    reps: 12,
-    weight: 175,
-  },
-  {
-    date: "2024-01-06",
-    name: "Squat",
-    type: "Lower Body",
-    sets: 3,
-    reps: 15,
-    weight: 125,
-  },
-  {
-    date: "2024-01-07",
-    name: "Push Press",
-    type: "Upper Body",
-    sets: 4,
-    reps: 20,
-    weight: 100,
-  },
-  {
-    date: "2024-01-08",
-    name: "Bench",
-    type: "Upper Body",
-    sets: 2,
-    reps: 30,
-    weight: 150,
-  },
-  {
-    date: "2024-01-09",
-    name: "Squat",
-    type: "Lower Body",
-    sets: 2,
-    reps: 25,
-    weight: 125,
-  },
-  {
-    date: "2024-01-10",
-    name: "Deadlift",
-    type: "Lower Body",
-    sets: 3,
-    reps: 10,
-    weight: 200,
-  },
-  {
-    date: "2024-01-11",
-    name: "Push Press",
-    type: "Upper Body",
-    sets: 3,
-    reps: 20,
-    weight: 100,
-  },
-  {
-    date: "2024-01-12",
-    name: "Bench",
-    type: "Upper Body",
-    sets: 4,
-    reps: 15,
-    weight: 150,
-  },
-];
+function NewWorkoutScreen({ route }) {
+  const { oneRepMax, setsDesired, lift } = route.params;
+  let imgSrc = null;
+  let imgLink = "";
 
-const calculateOneRepMax = (reps, weight, type) => {
-  if (type === "Upper Body") {
-    return weight * reps * 0.033 + weight;
-  } else {
-    return weight * reps * 0.0333 + weight * 1.0975;
-  }
-};
-
-function WorkoutLog() {
-  // const [workouts, setWorkouts] = useState(null);
-
-  // useEffect(() => {
-
-  // })
-
-  // if (workouts === null || workouts.length === 0) {
-  //   return null;
-  // }
-
-  return (
-    <View style={styles.logContainer}>
-      <Text style={styles.logHeading}>Log</Text>
-      <ScrollView>
-        {workouts.map(({ date, name, type, sets, reps, weight }) => (
-          <Text style={styles.logText} key={date}>
-            {date}&nbsp;&nbsp;&nbsp;&nbsp;{name}&nbsp;&nbsp;&nbsp;&nbsp;
-            {/*{type} {sets} {reps}*/}{" "}
-            {calculateOneRepMax(reps, weight, type).toFixed("0")}
-          </Text>
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-function WorkoutsScreen({ navigation }) {
-  return (
-    <View style={styles.main}>
-      <View style={styles.buttonContainer}>
-        <Button
-          title="New Workout"
-          color="#f00"
-          onPress={() => {
-            navigation.navigate("New Workout");
-          }}
-        />
-      </View>
-      <View style={styles.logContainer}>
-        <WorkoutLog />
-      </View>
-    </View>
-  );
-}
-
-function NewWorkoutScreen({ navigation }) {
-  const [oneRepMax, setOneRepMax] = useState(0);
-  const [setsDesired, setSetsDesired] = useState(0);
-  const [type, setType] = useState("");
-  const [lift, setLift] = useState("");
-  const workout = useRef({});
-
-  const isValid = () => {
-    let success = true;
-
-    let errorMessage = "";
-    errorMessage += Validator.isPresent(oneRepMax, "One Rep Max");
-    errorMessage += Validator.isNumeric(oneRepMax, "One Rep Max");
-
-    errorMessage += Validator.isPresent(setsDesired, "Sets Desired");
-    errorMessage += Validator.isNumeric(setsDesired, "Sets Desired");
-
-    errorMessage += Validator.isPresent(lift, "Lift Name");
-    errorMessage += Validator.isValidWorkoutName(lift, "Lift Name");
-
-    if (errorMessage != "") {
-      success = false;
-      Alert.alert("Entry Error", errorMessage);
-    }
-    console.log(success);
-    return success;
+  const images = {
+    "Bench Press": {
+      src: require("./assets/bench.jpg"),
+      link: "https://www.strongerbyscience.com/how-to-bench/",
+    },
+    "Back Squat": {
+      src: require("./assets/squat.jpg"),
+      link: "https://www.strongerbyscience.com/how-to-squat/",
+    },
+    Deadlift: {
+      src: require("./assets/deadlift.jpg"),
+      link: "https://www.strongerbyscience.com/how-to-deadlift/",
+    },
   };
 
-  const generateWorkout = (oneRepMax, setsDesired) => {
-    if (isValid) {
-      navigation.navigate("Current Workout", {
+  if (images[lift]) {
+    imgSrc = images[lift].src;
+    imgLink = images[lift].link;
+  }
+
+  return (
+    <View style={styles.main}>
+      <TouchableOpacity onPress={() => Linking.openURL(imgLink)}>
+        <Image style={styles.image} source={imgSrc} />
+      </TouchableOpacity>
+      <Text style={styles.heading}>{lift} Workout</Text>
+      <Text>Max: {oneRepMax}</Text>
+      <Text>Sets: {setsDesired}</Text>
+      {/* TODO: Render a table or similar which tells the user
+      what workout to do, make finish workout save the workout to DB */}
+      <TouchableOpacity style={styles.button}>
+        <Text style={styles.buttonText}>Finish Workout</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function WorkoutLog({ priorWorkouts }) {
+  return (
+    <View style={styles.workoutLogSection}>
+      <Text style={styles.heading}>Workout Log</Text>
+      {/* Date will be the primary key of the database */}
+      {priorWorkouts.map((item) => (
+        <Text key={item.date}>
+          {item.date}&nbsp;&nbsp;&nbsp;&nbsp;
+          {item.oneRepMax}&nbsp;&nbsp;&nbsp;&nbsp;
+          {item.setsDesired}&nbsp;&nbsp;&nbsp;&nbsp;
+          {item.lift}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function HomeScreen({ navigation }) {
+  const [oneRepMax, setOneRepMax] = useState(0);
+  const [setsDesired, setSetsDesired] = useState(0);
+  const [lift, setLift] = useState("");
+  const [priorWorkouts, setPriorWorkouts] = useState([
+    {
+      oneRepMax: 250,
+      setsDesired: 4,
+      lift: "Bench Press",
+      date: "2022-01-01",
+    },
+    {
+      oneRepMax: 300,
+      setsDesired: 5,
+      lift: "Deadlift",
+      date: "2022-01-02",
+    },
+    {
+      oneRepMax: 200,
+      setsDesired: 3,
+      lift: "Back Squat",
+      date: "2022-01-03",
+    },
+  ]);
+
+  // useEffect(() => {
+  //   setPriorWorkouts();
+  // }, priorWorkouts);
+
+  const generateWorkout = (oneRepMax, setsDesired, lift) => {
+    const isValid = () => {
+      let success = true;
+      let errorMessage = "";
+
+      errorMessage += Validator.isPresent(oneRepMax, "One Rep Max");
+      errorMessage += Validator.isNumeric(oneRepMax, "One Rep Max");
+      errorMessage += Validator.isWithinRange(
+        oneRepMax,
+        "One Rep Max",
+        1,
+        1500
+      );
+
+      errorMessage += Validator.isPresent(setsDesired, "Number of sets");
+      errorMessage += Validator.isNumeric(setsDesired, "Number of sets");
+      errorMessage += Validator.isWithinRange(
+        setsDesired,
+        "Number of sets",
+        1,
+        10
+      );
+
+      errorMessage += Validator.isPresent(lift, "Lift Name");
+      errorMessage += Validator.isValidWorkoutName(lift, "Lift Name");
+
+      if (errorMessage != "") {
+        success = false;
+        Alert.alert("Entry Error", errorMessage);
+        console.log("Entry Error", errorMessage);
+      }
+
+      return success;
+    };
+
+    if (isValid()) {
+      console.log(oneRepMax, setsDesired, lift);
+      navigation.navigate("New Workout", {
         oneRepMax: oneRepMax,
         setsDesired: setsDesired,
         lift: lift,
@@ -211,74 +152,43 @@ function NewWorkoutScreen({ navigation }) {
 
   return (
     <View style={styles.main}>
-      <View>
+      <View style={styles.newWorkoutSection}>
         <TextInput
           style={styles.input}
           placeholder="One Rep Max in Pounds"
           onChangeText={setOneRepMax}
+          inputMode={"numeric"}
         />
         <TextInput
           style={styles.input}
-          placeholder="Sets Desired"
+          placeholder="Number of sets to do"
           onChangeText={setSetsDesired}
+          inputMode={"numeric"}
         />
+        {/* Would be easier with a dropdown/picker/select element but requires separate library */}
         <TextInput
           style={styles.input}
           placeholder="Lift Name"
           onChangeText={setLift}
         />
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => generateWorkout(oneRepMax, setsDesired, lift)}
+        >
+          <Text style={styles.buttonText}>New Workout</Text>
+        </TouchableOpacity>
       </View>
-
-      <View style={{ marginTop: 15 }}>
-        <Button
-          title="Generate Workout"
-          color="#f00"
-          onPress={() => {
-            generateWorkout(oneRepMax, setsDesired);
-          }}
-        />
-      </View>
+      {priorWorkouts ? <WorkoutLog priorWorkouts={priorWorkouts} /> : null}
     </View>
   );
 }
-
-function CurrentWorkoutScreen({ route, navigation }) {
-  const { oneRepMax, setsDesired, lift } = route.params;
-  let imageSource = "";
-  if (lift === "Squat") {
-    imageSource = require("./assets/squat.jpg");
-  } else if (lift === "Bench") {
-    imageSource = require("./assets/bench.jpg");
-  } else if (lift === "Deadlift") {
-    imageSource = require("./assets/deadlift.jpg");
-  } else if (lift === "Push Press") {
-    imageSource = require("./assets/pushpress.jpg");
-  }
-  return (
-    <View style={styles.main}>
-      <Image source={imageSource} />
-    </View>
-  );
-}
-
-const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: "#f00" },
-          headerTintColor: "#fff",
-        }}
-      >
-        <Stack.Screen name="Workouts" component={WorkoutsScreen} />
-        <Stack.Screen
-          name="New Workout"
-          component={NewWorkoutScreen}
-          options={{ title: "Create New Workout" }}
-        />
-        <Stack.Screen name="Current Workout" component={CurrentWorkoutScreen} />
+      <Stack.Navigator initialRouteName="Home">
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="New Workout" component={NewWorkoutScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -290,27 +200,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  buttonContainer: {
-    height: 200,
+  newWorkoutSection: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  logContainer: {
-    flex: 2,
+  workoutLogSection: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  logHeading: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
+  button: {
+    backgroundColor: "#f00",
+    margin: 10,
+    padding: 10,
+    borderRadius: 5,
   },
-  logText: {
+  buttonText: {
+    color: "#fff",
     fontSize: 16,
+    fontWeight: "bold",
+  },
+  heading: {
+    fontSize: 24,
+    fontWeight: "bold",
     marginBottom: 10,
   },
   input: {
     borderBottomWidth: 1,
-    width: 200,
+    borderBottomColor: "#777",
+    width: 175,
+    marginBottom: 2,
+  },
+  image: {
+    width: 360,
+    height: 202.5,
+    margin: 20,
   },
 });

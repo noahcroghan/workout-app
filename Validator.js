@@ -9,7 +9,7 @@ export function isPresent(value, name) {
 export function isNumeric(value, name) {
   let msg = "";
   if (isNaN(value)) {
-    msg += name + " Must be a valid number.\n";
+    msg += name + " must be a valid number.\n";
   }
   return msg;
 }
@@ -23,7 +23,7 @@ export function isWithinRange(value, name, min, max) {
   return msg;
 }
 
-const VALID_WORKOUTS = ["Bench", "Squat", "Deadlift", "Push Press"];
+const VALID_WORKOUTS = ["Bench Press", "Back Squat", "Deadlift"];
 export function isValidWorkoutName(value, name) {
   let msg = "";
   if (!VALID_WORKOUTS.includes(value)) {
