@@ -12,15 +12,20 @@ import {
 } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-// import * as SQLite from "expo-sqlite";
+import { Dropdown } from "react-native-element-dropdown";
+import * as SQLite from "expo-sqlite";
 import * as Validator from "./Validator.js";
 
-const Stack = createNativeStackNavigator();
+const db = SQLite.openDatabase("lifts.db");
+
+// IDEA: Light and Dark Mode Styles
+// IDEA: Full Android, iOS, Web compatibility
+// IDEA: If iOS/Android, save to SQLite, if web, save to local storage
+// TODO: Rewrite with Expo SDK 51 (currently 50)
+// TODO: Save to database, load from database
 
 function NewWorkoutScreen({ route }) {
-  const { oneRepMax, setsDesired, lift } = route.params;
-  let imgSrc = null;
-  let imgLink = "";
+  const { workoutReps, workoutWeights, lift, oneRepMax } = route.params;
 
   const images = {
     "Bench Press": {
@@ -37,10 +42,8 @@ function NewWorkoutScreen({ route }) {
     },
   };
 
-  if (images[lift]) {
-    imgSrc = images[lift].src;
-    imgLink = images[lift].link;
-  }
+  const imgSrc = images[lift].src;
+  const imgLink = images[lift].link;
 
   return (
     <View style={styles.main}>
@@ -48,10 +51,12 @@ function NewWorkoutScreen({ route }) {
         <Image style={styles.image} source={imgSrc} />
       </TouchableOpacity>
       <Text style={styles.heading}>{lift} Workout</Text>
-      <Text>Max: {oneRepMax}</Text>
-      <Text>Sets: {setsDesired}</Text>
-      {/* TODO: Render a table or similar which tells the user
-      what workout to do, make finish workout save the workout to DB */}
+      <Text style={styles.bodyText}>Current One Rep Max: {oneRepMax} lbs</Text>
+      {workoutWeights.map((item, itemIndex) => (
+        <Text style={styles.bodyText} key={itemIndex}>
+          Set {itemIndex + 1}: {workoutReps[itemIndex]} reps of {item} lbs
+        </Text>
+      ))}
       <TouchableOpacity style={styles.button}>
         <Text style={styles.buttonText}>Finish Workout</Text>
       </TouchableOpacity>
@@ -64,14 +69,16 @@ function WorkoutLog({ priorWorkouts }) {
     <View style={styles.workoutLogSection}>
       <Text style={styles.heading}>Workout Log</Text>
       {/* Date will be the primary key of the database */}
-      {priorWorkouts.map((item) => (
-        <Text key={item.date}>
-          {item.date}&nbsp;&nbsp;&nbsp;&nbsp;
-          {item.oneRepMax}&nbsp;&nbsp;&nbsp;&nbsp;
-          {item.setsDesired}&nbsp;&nbsp;&nbsp;&nbsp;
-          {item.lift}
-        </Text>
-      ))}
+      <ScrollView>
+        {priorWorkouts.map((item) => (
+          <Text style={styles.bodyText} key={item.date}>
+            {item.date}&nbsp;&nbsp;&nbsp;&nbsp;
+            {item.oneRepMax}&nbsp;&nbsp;&nbsp;&nbsp;
+            {item.setsDesired}&nbsp;&nbsp;&nbsp;&nbsp;
+            {item.lift}
+          </Text>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -79,34 +86,36 @@ function WorkoutLog({ priorWorkouts }) {
 function HomeScreen({ navigation }) {
   const [oneRepMax, setOneRepMax] = useState(0);
   const [setsDesired, setSetsDesired] = useState(0);
-  const [lift, setLift] = useState("");
-  const [priorWorkouts, setPriorWorkouts] = useState([
-    {
-      oneRepMax: 250,
-      setsDesired: 4,
-      lift: "Bench Press",
-      date: "2022-01-01",
-    },
-    {
-      oneRepMax: 300,
-      setsDesired: 5,
-      lift: "Deadlift",
-      date: "2022-01-02",
-    },
-    {
-      oneRepMax: 200,
-      setsDesired: 3,
-      lift: "Back Squat",
-      date: "2022-01-03",
-    },
-  ]);
+  const [lift, setLift] = useState();
+  const [priorWorkouts, setPriorWorkouts] = useState(); // array of workout objects
+
+  // [
+  //   {
+  //     oneRepMax: 250,
+  //     setsDesired: 4,
+  //     lift: "Bench Press",
+  //     date: "2022-01-01",
+  //   },
+  //   {
+  //     oneRepMax: 300,
+  //     setsDesired: 5,
+  //     lift: "Deadlift",
+  //     date: "2022-01-02",
+  //   },
+  //   {
+  //     oneRepMax: 200,
+  //     setsDesired: 3,
+  //     lift: "Back Squat",
+  //     date: "2022-01-03",
+  //   },
+  // ]
 
   // useEffect(() => {
   //   setPriorWorkouts();
   // }, priorWorkouts);
 
   const generateWorkout = (oneRepMax, setsDesired, lift) => {
-    const isValid = () => {
+    const isValidEntry = () => {
       let success = true;
       let errorMessage = "";
 
@@ -119,33 +128,42 @@ function HomeScreen({ navigation }) {
         1500
       );
 
-      errorMessage += Validator.isPresent(setsDesired, "Number of sets");
-      errorMessage += Validator.isNumeric(setsDesired, "Number of sets");
+      errorMessage += Validator.isPresent(setsDesired, "Number of Sets");
+      errorMessage += Validator.isNumeric(setsDesired, "Number of Sets");
       errorMessage += Validator.isWithinRange(
         setsDesired,
-        "Number of sets",
+        "Number of Sets",
         1,
-        10
+        5
       );
 
-      errorMessage += Validator.isPresent(lift, "Lift Name");
-      errorMessage += Validator.isValidWorkoutName(lift, "Lift Name");
+      errorMessage += Validator.isPresent(lift, "Lift Type");
 
       if (errorMessage != "") {
         success = false;
         Alert.alert("Entry Error", errorMessage);
-        console.log("Entry Error", errorMessage);
+        console.debug(errorMessage);
       }
 
       return success;
     };
 
-    if (isValid()) {
-      console.log(oneRepMax, setsDesired, lift);
+    if (isValidEntry()) {
+      const percentages = [0.65, 0.75, 0.85, 0.9, 0.95];
+      const reps = [5, 5, 3, 3, 1];
+      let workoutWeights = [];
+      let workoutReps = [];
+
+      for (let i = 0; i < setsDesired; i++) {
+        workoutWeights.push(Math.round((oneRepMax * percentages[i]) / 5) * 5); // Round to the nearest multiple of 5
+        workoutReps.push(reps[i]);
+      }
+
       navigation.navigate("New Workout", {
-        oneRepMax: oneRepMax,
-        setsDesired: setsDesired,
         lift: lift,
+        oneRepMax: oneRepMax,
+        workoutWeights: workoutWeights,
+        workoutReps: workoutReps,
       });
     }
   };
@@ -155,22 +173,38 @@ function HomeScreen({ navigation }) {
       <View style={styles.newWorkoutSection}>
         <TextInput
           style={styles.input}
+          placeholderTextColor={"#888"}
           placeholder="One Rep Max in Pounds"
           onChangeText={setOneRepMax}
           inputMode={"numeric"}
+          returnKeyType={"done"}
         />
         <TextInput
           style={styles.input}
-          placeholder="Number of sets to do"
+          placeholderTextColor={"#888"}
+          placeholder="Number of Sets to Do"
           onChangeText={setSetsDesired}
           inputMode={"numeric"}
+          returnKeyType={"done"}
         />
-        {/* Would be easier with a dropdown/picker/select element but requires separate library */}
-        <TextInput
-          style={styles.input}
-          placeholder="Lift Name"
-          onChangeText={setLift}
+        <Dropdown
+          style={styles.dropdown}
+          placeholderStyle={styles.dropdownPlaceholderStyle}
+          selectedTextStyle={styles.dropdownSelectedTextStyle}
+          data={[
+            { label: "Bench Press", value: "Bench Press" },
+            { label: "Back Squat", value: "Back Squat" },
+            { label: "Deadlift", value: "Deadlift" },
+          ]}
+          labelField="label"
+          valueField="value"
+          onChange={(item) => {
+            setLift(item.value);
+          }}
+          placeholder="Select Lift"
+          value={lift}
         />
+
         <TouchableOpacity
           style={styles.button}
           onPress={() => generateWorkout(oneRepMax, setsDesired, lift)}
@@ -182,6 +216,8 @@ function HomeScreen({ navigation }) {
     </View>
   );
 }
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
@@ -227,14 +263,34 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   input: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#777",
+    borderBottomWidth: 0.75,
+    borderBottomColor: "#888",
     width: 175,
-    marginBottom: 2,
+    height: 30,
+    marginBottom: 3,
+    fontSize: 14,
+  },
+  dropdown: {
+    width: 175,
+    height: 30,
+    borderBottomWidth: 0.75,
+    borderBottomColor: "#888",
+    marginBottom: 3,
+  },
+  dropdownPlaceholderStyle: {
+    color: "#888",
+    fontSize: 14,
+  },
+  dropdownSelectedTextStyle: {
+    fontSize: 14,
   },
   image: {
     width: 360,
     height: 202.5,
     margin: 20,
+    borderRadius: 5,
+  },
+  bodyText: {
+    fontSize: 16,
   },
 });
