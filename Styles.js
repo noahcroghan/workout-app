@@ -63,4 +63,8 @@ export const styles = StyleSheet.create({
   bodyText: {
     fontSize: 16,
   },
+  // Make this better
+  logText: {
+    fontSize: 10,
+  },
 });

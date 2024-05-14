@@ -22,11 +22,31 @@ const db = SQLite.openDatabase("lifts.db");
 // IDEA: Full Android, iOS, Web compatibility
 // IDEA: If iOS/Android, save to SQLite, if web, save to local storage
 // TODO: Rewrite with Expo SDK 51 (currently 50)
-// TODO: Save to database, load from database
 
 // TODO: Make screen warn about leaving screen without saving
-function NewWorkoutScreen({ route }) {
-  const { workoutReps, workoutWeights, lift, oneRepMax } = route.params;
+function discardWorkout() {}
+
+const insertIntoDB = (oneRepMax, setsDesired, repsCompleted, lift) => {
+  db.transaction(
+    (tx) => {
+      tx.executeSql(
+        "INSERT INTO lifts (date, oneRepMax, setsDesired, repsCompleted, lift) VALUES (julianday('now'), ?, ?, ?, ?)",
+        [oneRepMax, setsDesired, repsCompleted, lift]
+      );
+    },
+    (error) => {
+      console.log("db error insert into lifts");
+      console.log(error);
+    },
+    () => {
+      console.log("db success insert into lifts");
+    }
+  );
+};
+
+function NewWorkoutScreen({ route, navigation }) {
+  const { workoutReps, workoutWeights, lift, oneRepMax, setsDesired } =
+    route.params;
 
   const images = {
     "Bench Press": {
@@ -58,25 +78,69 @@ function NewWorkoutScreen({ route }) {
           Set {itemIndex + 1}: {workoutReps[itemIndex]} reps of {item} lbs
         </Text>
       ))}
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity
+        onPress={() => {
+          // Calculate total reps
+          let totalReps = 0;
+          for (let i = 0; i < workoutReps.length; i++) {
+            totalReps += workoutReps[i];
+          }
+
+          // Save to database
+          insertIntoDB(oneRepMax, setsDesired, totalReps, lift);
+
+          // instead of this, might just navigate to home screen or use navigate.pop so it doesn't ask if we want to discard
+          // navigation.goBack();
+          navigation.navigate("Home");
+        }}
+        style={styles.button}
+      >
         <Text style={styles.buttonText}>Finish Workout</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function WorkoutLog({ priorWorkouts }) {
+// TODO: Make every item pressable, make delete from log
+function WorkoutLog() {
+  const [priorWorkouts, setPriorWorkouts] = useState(null);
+
+  useEffect(() => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql(
+          "SELECT date, oneRepMax, setsDesired, repsCompleted, lift FROM lifts ORDER BY date DESC;",
+          [],
+          (_, { rows: { _array } }) => setPriorWorkouts(_array)
+        );
+        tx.executeSql("SELECT * FROM lifts", [], (_, { rows }) =>
+          console.log(JSON.stringify(rows))
+        );
+      },
+      (error) => {
+        console.log("db error select from lift table");
+        console.log(error);
+      },
+      () => {
+        console.log("db success select from lift table");
+      }
+    );
+  }, []);
+
+  if (priorWorkouts === null || priorWorkouts.length === 0) {
+    return null;
+  }
+
   return (
     <View style={styles.workoutLogSection}>
       <Text style={styles.heading}>Workout Log</Text>
-      {/* Date will be the primary key of the database */}
       <ScrollView>
-        {priorWorkouts.map((item) => (
-          <Text style={styles.bodyText} key={item.date}>
-            {item.date}&nbsp;&nbsp;&nbsp;&nbsp;
-            {item.oneRepMax}&nbsp;&nbsp;&nbsp;&nbsp;
-            {item.setsDesired}&nbsp;&nbsp;&nbsp;&nbsp;
-            {item.lift}
+        {/* Make this look better */}
+        {priorWorkouts.map((workout) => (
+          <Text style={styles.logText} key={workout.date}>
+            Date: {workout.date} 1RM: {workout.oneRepMax} Sets:{" "}
+            {workout.setsDesired} Total Reps: {workout.repsCompleted} Lift:{" "}
+            {workout.lift}
           </Text>
         ))}
       </ScrollView>
@@ -88,32 +152,6 @@ function HomeScreen({ navigation }) {
   const [oneRepMax, setOneRepMax] = useState(0);
   const [setsDesired, setSetsDesired] = useState(0);
   const [lift, setLift] = useState();
-  const [priorWorkouts, setPriorWorkouts] = useState(); // array of workout objects
-
-  // [
-  //   {
-  //     oneRepMax: 250,
-  //     setsDesired: 4,
-  //     lift: "Bench Press",
-  //     date: "2022-01-01",
-  //   },
-  //   {
-  //     oneRepMax: 300,
-  //     setsDesired: 5,
-  //     lift: "Deadlift",
-  //     date: "2022-01-02",
-  //   },
-  //   {
-  //     oneRepMax: 200,
-  //     setsDesired: 3,
-  //     lift: "Back Squat",
-  //     date: "2022-01-03",
-  //   },
-  // ]
-
-  // useEffect(() => {
-  //   setPriorWorkouts();
-  // }, priorWorkouts);
 
   const generateWorkout = (oneRepMax, setsDesired, lift) => {
     const isValidEntry = () => {
@@ -165,6 +203,7 @@ function HomeScreen({ navigation }) {
         oneRepMax: oneRepMax,
         workoutWeights: workoutWeights,
         workoutReps: workoutReps,
+        setsDesired: setsDesired,
       });
     }
   };
@@ -213,7 +252,7 @@ function HomeScreen({ navigation }) {
           <Text style={styles.buttonText}>New Workout</Text>
         </TouchableOpacity>
       </View>
-      {priorWorkouts ? <WorkoutLog priorWorkouts={priorWorkouts} /> : null}
+      <WorkoutLog />
     </View>
   );
 }
@@ -221,11 +260,35 @@ function HomeScreen({ navigation }) {
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  useEffect(() => {
+    db.transaction(
+      (tx) => {
+        // tx.executeSql("DROP TABLE lifts");
+        tx.executeSql(
+          "CREATE TABLE IF NOT EXISTS lifts (date real primary key not null, oneRepMax integer, setsDesired integer, repsCompleted integer, lift text)"
+        );
+      },
+      (error) => {
+        console.log("db error create table");
+        console.log(error);
+      },
+      () => {
+        console.log("db success create table");
+      }
+    );
+  }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home">
         <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="New Workout" component={NewWorkoutScreen} />
+        <Stack.Screen
+          name="New Workout"
+          component={NewWorkoutScreen}
+          options={{
+            headerLeft: discardWorkout,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
