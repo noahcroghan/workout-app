@@ -44,6 +44,29 @@ const insertIntoDB = (oneRepMax, setsDesired, repsCompleted, lift) => {
   );
 };
 
+// might need to accept the getter function as a parameter
+const selectFromDB = () => {
+  db.transaction(
+    (tx) => {
+      tx.executeSql(
+        "SELECT date, oneRepMax, setsDesired, repsCompleted, lift FROM lifts ORDER BY date DESC;",
+        [],
+        (_, { rows: { _array } }) => setPriorWorkouts(_array)
+      );
+      tx.executeSql("SELECT * FROM lifts", [], (_, { rows }) =>
+        console.log(JSON.stringify(rows))
+      );
+    },
+    (error) => {
+      console.log("db error select from lift table");
+      console.log(error);
+    },
+    () => {
+      console.log("db success select from lift table");
+    }
+  );
+};
+
 function NewWorkoutScreen({ route, navigation }) {
   const { workoutReps, workoutWeights, lift, oneRepMax, setsDesired } =
     route.params;
@@ -89,8 +112,9 @@ function NewWorkoutScreen({ route, navigation }) {
           // Save to database
           insertIntoDB(oneRepMax, setsDesired, totalReps, lift);
 
-          // instead of this, might just navigate to home screen or use navigate.pop so it doesn't ask if we want to discard
-          // navigation.goBack();
+          // Update the values from the databse
+          selectFromDB();
+
           navigation.navigate("Home");
         }}
         style={styles.button}
@@ -106,25 +130,7 @@ function WorkoutLog() {
   const [priorWorkouts, setPriorWorkouts] = useState(null);
 
   useEffect(() => {
-    db.transaction(
-      (tx) => {
-        tx.executeSql(
-          "SELECT date, oneRepMax, setsDesired, repsCompleted, lift FROM lifts ORDER BY date DESC;",
-          [],
-          (_, { rows: { _array } }) => setPriorWorkouts(_array)
-        );
-        tx.executeSql("SELECT * FROM lifts", [], (_, { rows }) =>
-          console.log(JSON.stringify(rows))
-        );
-      },
-      (error) => {
-        console.log("db error select from lift table");
-        console.log(error);
-      },
-      () => {
-        console.log("db success select from lift table");
-      }
-    );
+    selectFromDB();
   }, []);
 
   if (priorWorkouts === null || priorWorkouts.length === 0) {
