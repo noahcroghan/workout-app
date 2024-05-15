@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Text,
   View,
@@ -39,13 +39,8 @@ function NewWorkoutScreen({ route, navigation }) {
           [oneRepMax, setsDesired, repsCompleted, lift]
         );
       },
-      (error) => {
-        console.log("Error: Insert into lifts");
-        console.log(error);
-      },
-      () => {
-        console.log("Success: Insert into lifts");
-      }
+      (error) => console.log("Error: Insert into lifts\n" + error),
+      () => console.log("Success: Insert into lifts")
     );
   };
 
@@ -104,9 +99,7 @@ function NewWorkoutScreen({ route, navigation }) {
 }
 
 // TODO: Make every item pressable, make delete from log
-function WorkoutLog({ priorWorkouts }) {
-  // Can probably just use conditional operator at
-  // component call like how I originally had it
+function WorkoutLog({ priorWorkouts, onPressItem }) {
   if (priorWorkouts === null || priorWorkouts.length === 0) {
     return null;
   }
@@ -117,10 +110,16 @@ function WorkoutLog({ priorWorkouts }) {
       <ScrollView>
         {/* Make this look better */}
         {priorWorkouts.map((workout) => (
-          <Text style={styles.logText} key={workout.date}>
-            {workout.date} 1RM: {workout.oneRepMax} Sets: {workout.setsDesired}{" "}
-            Total Reps: {workout.repsCompleted} {workout.lift}
-          </Text>
+          <TouchableOpacity
+            key={workout.date}
+            onPress={() => onPressItem(workout.date)}
+          >
+            <Text style={styles.logText}>
+              {workout.date} 1RM: {workout.oneRepMax} Sets:{" "}
+              {workout.setsDesired} Total Reps: {workout.repsCompleted}{" "}
+              {workout.lift}
+            </Text>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </View>
@@ -132,6 +131,7 @@ function HomeScreen({ navigation }) {
   const [setsDesired, setSetsDesired] = useState(0);
   const [lift, setLift] = useState(null);
   const [priorWorkouts, setPriorWorkouts] = useState(null);
+  const textInputRef = useRef(null); // Only used to clear text input
 
   // Updates on component mount and when the user returns focus to home screen
   useEffect(() => {
@@ -139,23 +139,16 @@ function HomeScreen({ navigation }) {
       db.transaction(
         (tx) => {
           tx.executeSql(
-            // If the user clicks really fast they can add two values with the same datetime, which will cause them to have identical keys.
-            // The only fix I can imagine for this is to manually format date on the client in JavaScript which is easier said than done.
-            "SELECT datetime(date) as date, oneRepMax, setsDesired, repsCompleted, lift FROM lifts ORDER BY datetime(date) DESC",
+            "SELECT date, oneRepMax, setsDesired, repsCompleted, lift FROM lifts ORDER BY datetime(date) DESC",
             [],
             (_, { rows: { _array } }) => setPriorWorkouts(_array)
           );
-          tx.executeSql("SELECT * FROM lifts", [], (_, { rows }) =>
-            console.log(JSON.stringify(rows))
-          );
+          // tx.executeSql("SELECT * FROM lifts", [], (_, { rows }) =>
+          // console.log(JSON.stringify(rows))
+          // );
         },
-        (error) => {
-          console.log("Error: Select from lifts table");
-          console.log(error);
-        },
-        () => {
-          console.log("Success: Select from lifts table");
-        }
+        (error) => console.log("Error: Select from lifts table\n" + error),
+        () => console.log("Success: Select from lifts table")
       );
     });
 
@@ -226,6 +219,7 @@ function HomeScreen({ navigation }) {
           onChangeText={setOneRepMax}
           inputMode={"numeric"}
           returnKeyType={"done"}
+          ref={textInputRef}
         />
         <TextInput
           style={styles.input}
@@ -234,6 +228,7 @@ function HomeScreen({ navigation }) {
           onChangeText={setSetsDesired}
           inputMode={"numeric"}
           returnKeyType={"done"}
+          ref={textInputRef}
         />
         <Dropdown
           style={styles.dropdown}
@@ -254,12 +249,45 @@ function HomeScreen({ navigation }) {
         />
         <TouchableOpacity
           style={styles.button}
-          onPress={() => generateWorkout(oneRepMax, setsDesired, lift)}
+          onPress={() => {
+            generateWorkout(oneRepMax, setsDesired, lift);
+            // TODO: Not all inputs are cleared
+            textInputRef.current.clear();
+          }}
         >
           <Text style={styles.buttonText}>New Workout</Text>
         </TouchableOpacity>
       </View>
-      <WorkoutLog priorWorkouts={priorWorkouts} />
+      <WorkoutLog
+        priorWorkouts={priorWorkouts}
+        onPressItem={(date) => {
+          Alert.alert("Delete", "Are you sure you want to delete this item?", [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "OK",
+              onPress: () => {
+                console.log(date);
+                db.transaction(
+                  (tx) => {
+                    tx.executeSql(
+                      "DELETE FROM lifts WHERE date = ?",
+                      [date],
+                      () => {
+                        // Update state with the new lifts after deletion
+                        setPriorWorkouts((oldPriorWorkouts) =>
+                          oldPriorWorkouts.filter((item) => item.date !== date)
+                        );
+                      }
+                    );
+                  },
+                  (error) => console.log("Error: Delete from lifts\n" + error),
+                  () => console.log("Success: Delete from lifts")
+                );
+              },
+            },
+          ]);
+        }}
+      />
     </View>
   );
 }
@@ -275,13 +303,8 @@ export default function App() {
           "CREATE TABLE IF NOT EXISTS lifts (date real primary key not null, oneRepMax integer, setsDesired integer, repsCompleted integer, lift text)"
         );
       },
-      (error) => {
-        console.log("Error: Create table");
-        console.log(error);
-      },
-      () => {
-        console.log("Success: Lifts table was created (or already existed)");
-      }
+      (error) => console.log("Error: Create table\n" + error),
+      () => console.log("Success: Lifts table was created (or already existed)")
     );
   }, []);
 
