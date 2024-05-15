@@ -22,52 +22,33 @@ const db = SQLite.openDatabase("lifts.db");
 // IDEA: Full Android, iOS, Web compatibility
 // IDEA: If iOS/Android, save to SQLite, if web, save to local storage
 // TODO: Rewrite with Expo SDK 51 (currently 50)
+// TODO: Move other things to separate files, change file structure
 
-// TODO: Make screen warn about leaving screen without saving
-function discardWorkout() {}
-
-const insertIntoDB = (oneRepMax, setsDesired, repsCompleted, lift) => {
-  db.transaction(
-    (tx) => {
-      tx.executeSql(
-        "INSERT INTO lifts (date, oneRepMax, setsDesired, repsCompleted, lift) VALUES (julianday('now'), ?, ?, ?, ?)",
-        [oneRepMax, setsDesired, repsCompleted, lift]
-      );
-    },
-    (error) => {
-      console.log("db error insert into lifts");
-      console.log(error);
-    },
-    () => {
-      console.log("db success insert into lifts");
-    }
-  );
-};
-
-// might need to accept the getter function as a parameter
-const selectFromDB = () => {
-  db.transaction(
-    (tx) => {
-      tx.executeSql(
-        "SELECT date, oneRepMax, setsDesired, repsCompleted, lift FROM lifts ORDER BY date DESC;",
-        [],
-        (_, { rows: { _array } }) => setPriorWorkouts(_array)
-      );
-      tx.executeSql("SELECT * FROM lifts", [], (_, { rows }) =>
-        console.log(JSON.stringify(rows))
-      );
-    },
-    (error) => {
-      console.log("db error select from lift table");
-      console.log(error);
-    },
-    () => {
-      console.log("db success select from lift table");
-    }
-  );
-};
+function discardWorkout() {
+  // TODO: Make screen warn about leaving screen without saving
+  // This should be a React component...
+  // https://reactnavigation.org/docs/header-buttons
+}
 
 function NewWorkoutScreen({ route, navigation }) {
+  const insertIntoDB = (oneRepMax, setsDesired, repsCompleted, lift) => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql(
+          "INSERT INTO lifts (date, oneRepMax, setsDesired, repsCompleted, lift) VALUES (julianday('now'), ?, ?, ?, ?)",
+          [oneRepMax, setsDesired, repsCompleted, lift]
+        );
+      },
+      (error) => {
+        console.log("Error: Insert into lifts");
+        console.log(error);
+      },
+      () => {
+        console.log("Success: Insert into lifts");
+      }
+    );
+  };
+
   const { workoutReps, workoutWeights, lift, oneRepMax, setsDesired } =
     route.params;
 
@@ -90,7 +71,7 @@ function NewWorkoutScreen({ route, navigation }) {
   const imgLink = images[lift].link;
 
   return (
-    <View style={styles.main}>
+    <View style={styles.container}>
       <TouchableOpacity onPress={() => Linking.openURL(imgLink)}>
         <Image style={styles.image} source={imgSrc} />
       </TouchableOpacity>
@@ -112,9 +93,6 @@ function NewWorkoutScreen({ route, navigation }) {
           // Save to database
           insertIntoDB(oneRepMax, setsDesired, totalReps, lift);
 
-          // Update the values from the databse
-          selectFromDB();
-
           navigation.navigate("Home");
         }}
         style={styles.button}
@@ -126,27 +104,22 @@ function NewWorkoutScreen({ route, navigation }) {
 }
 
 // TODO: Make every item pressable, make delete from log
-function WorkoutLog() {
-  const [priorWorkouts, setPriorWorkouts] = useState(null);
-
-  useEffect(() => {
-    selectFromDB();
-  }, []);
-
+function WorkoutLog({ priorWorkouts }) {
+  // Can probably just use conditional operator at
+  // component call like how I originally had it
   if (priorWorkouts === null || priorWorkouts.length === 0) {
     return null;
   }
 
   return (
-    <View style={styles.workoutLogSection}>
+    <View style={styles.container}>
       <Text style={styles.heading}>Workout Log</Text>
       <ScrollView>
         {/* Make this look better */}
         {priorWorkouts.map((workout) => (
           <Text style={styles.logText} key={workout.date}>
-            Date: {workout.date} 1RM: {workout.oneRepMax} Sets:{" "}
-            {workout.setsDesired} Total Reps: {workout.repsCompleted} Lift:{" "}
-            {workout.lift}
+            {workout.date} 1RM: {workout.oneRepMax} Sets: {workout.setsDesired}{" "}
+            Total Reps: {workout.repsCompleted} {workout.lift}
           </Text>
         ))}
       </ScrollView>
@@ -157,7 +130,37 @@ function WorkoutLog() {
 function HomeScreen({ navigation }) {
   const [oneRepMax, setOneRepMax] = useState(0);
   const [setsDesired, setSetsDesired] = useState(0);
-  const [lift, setLift] = useState();
+  const [lift, setLift] = useState(null);
+  const [priorWorkouts, setPriorWorkouts] = useState(null);
+
+  // Updates on component mount and when the user returns focus to home screen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      db.transaction(
+        (tx) => {
+          tx.executeSql(
+            // If the user clicks really fast they can add two values with the same datetime, which will cause them to have identical keys.
+            // The only fix I can imagine for this is to manually format date on the client in JavaScript which is easier said than done.
+            "SELECT datetime(date) as date, oneRepMax, setsDesired, repsCompleted, lift FROM lifts ORDER BY datetime(date) DESC",
+            [],
+            (_, { rows: { _array } }) => setPriorWorkouts(_array)
+          );
+          tx.executeSql("SELECT * FROM lifts", [], (_, { rows }) =>
+            console.log(JSON.stringify(rows))
+          );
+        },
+        (error) => {
+          console.log("Error: Select from lifts table");
+          console.log(error);
+        },
+        () => {
+          console.log("Success: Select from lifts table");
+        }
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const generateWorkout = (oneRepMax, setsDesired, lift) => {
     const isValidEntry = () => {
@@ -187,7 +190,6 @@ function HomeScreen({ navigation }) {
       if (errorMessage != "") {
         success = false;
         Alert.alert("Entry Error", errorMessage);
-        console.debug(errorMessage);
       }
 
       return success;
@@ -215,8 +217,8 @@ function HomeScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.main}>
-      <View style={styles.newWorkoutSection}>
+    <View style={styles.container}>
+      <View style={styles.container}>
         <TextInput
           style={styles.input}
           placeholderTextColor={"#888"}
@@ -250,7 +252,6 @@ function HomeScreen({ navigation }) {
           placeholder="Select Lift"
           value={lift}
         />
-
         <TouchableOpacity
           style={styles.button}
           onPress={() => generateWorkout(oneRepMax, setsDesired, lift)}
@@ -258,7 +259,7 @@ function HomeScreen({ navigation }) {
           <Text style={styles.buttonText}>New Workout</Text>
         </TouchableOpacity>
       </View>
-      <WorkoutLog />
+      <WorkoutLog priorWorkouts={priorWorkouts} />
     </View>
   );
 }
@@ -275,11 +276,11 @@ export default function App() {
         );
       },
       (error) => {
-        console.log("db error create table");
+        console.log("Error: Create table");
         console.log(error);
       },
       () => {
-        console.log("db success create table");
+        console.log("Success: Lifts table was created (or already existed)");
       }
     );
   }, []);
