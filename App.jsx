@@ -11,8 +11,11 @@ import {
 } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+// import { HeaderBackButton } from "@react-navigation/elements";
+import { Ionicons } from "@expo/vector-icons";
 import { Dropdown } from "react-native-element-dropdown";
 import { styles } from "./Styles.js";
+import { JD } from "@lunisolar/julian";
 import * as SQLite from "expo-sqlite";
 import * as Validator from "./Validator.js";
 
@@ -24,11 +27,22 @@ const db = SQLite.openDatabase("lifts.db");
 // TODO: Rewrite with Expo SDK 51 (currently 50)
 // TODO: Move other things to separate files, change file structure
 
-function discardWorkout() {
-  // TODO: Make screen warn about leaving screen without saving
-  // This should be a React component...
-  // https://reactnavigation.org/docs/header-buttons
-}
+// function discardWorkout({ navigation }) {
+//   return (
+//     <HeaderBackButton
+//       onPress={() => {
+//         Alert.alert(
+//           "Discard Workout",
+//           "Going back will discard your current workout. Are you sure?",
+//           [
+//             { text: "Cancel", style: "cancel" },
+//             { text: "OK", onPress: () => navigation.goBack() },
+//           ]
+//         );
+//       }}
+//     />
+//   );
+// }
 
 function NewWorkoutScreen({ route, navigation }) {
   const insertIntoDB = (oneRepMax, setsDesired, repsCompleted, lift) => {
@@ -98,7 +112,6 @@ function NewWorkoutScreen({ route, navigation }) {
   );
 }
 
-// TODO: Make every item pressable, make delete from log
 function WorkoutLog({ priorWorkouts, onPressItem }) {
   if (priorWorkouts === null || priorWorkouts.length === 0) {
     return null;
@@ -107,17 +120,17 @@ function WorkoutLog({ priorWorkouts, onPressItem }) {
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Workout Log</Text>
+      <Text style={styles.italicText}>Click on a workout to delete it</Text>
       <ScrollView>
-        {/* Make this look better */}
         {priorWorkouts.map((workout) => (
           <TouchableOpacity
             key={workout.date}
             onPress={() => onPressItem(workout.date)}
           >
             <Text style={styles.logText}>
-              {workout.date} 1RM: {workout.oneRepMax} Sets:{" "}
-              {workout.setsDesired} Total Reps: {workout.repsCompleted}{" "}
-              {workout.lift}
+              ({JD.fromJdn(workout.date).format("M-D-YY")}) 1RM:{" "}
+              {workout.oneRepMax} Sets: {workout.setsDesired} Total Reps:{" "}
+              {workout.repsCompleted} {workout.lift}
             </Text>
           </TouchableOpacity>
         ))}
@@ -131,7 +144,8 @@ function HomeScreen({ navigation }) {
   const [setsDesired, setSetsDesired] = useState(0);
   const [lift, setLift] = useState(null);
   const [priorWorkouts, setPriorWorkouts] = useState(null);
-  const textInputRef = useRef(null); // Only used to clear text input
+  // const setsDesiredRef = useRef(null); // Only used to clear text input
+  // const oneRepMaxRef = useRef(null); // Only used to clear text input
 
   // Updates on component mount and when the user returns focus to home screen
   useEffect(() => {
@@ -215,11 +229,12 @@ function HomeScreen({ navigation }) {
         <TextInput
           style={styles.input}
           placeholderTextColor={"#888"}
-          placeholder="One Rep Max in Pounds"
+          placeholder="One Rep Max (1RM) in lbs"
           onChangeText={setOneRepMax}
           inputMode={"numeric"}
           returnKeyType={"done"}
-          ref={textInputRef}
+          // value={oneRepMax}
+          // ref={oneRepMaxRef}
         />
         <TextInput
           style={styles.input}
@@ -228,7 +243,8 @@ function HomeScreen({ navigation }) {
           onChangeText={setSetsDesired}
           inputMode={"numeric"}
           returnKeyType={"done"}
-          ref={textInputRef}
+          // value={setsDesired}
+          // ref={setsDesiredRef}
         />
         <Dropdown
           style={styles.dropdown}
@@ -251,8 +267,12 @@ function HomeScreen({ navigation }) {
           style={styles.button}
           onPress={() => {
             generateWorkout(oneRepMax, setsDesired, lift);
-            // TODO: Not all inputs are cleared
-            textInputRef.current.clear();
+            // Clear input fields
+            // oneRepMaxRef.current.clear();
+            // setsDesiredRef.current.clear();
+            // setOneRepMax(0);
+            // setSetsDesired(0);
+            // setLift(null);
           }}
         >
           <Text style={styles.buttonText}>New Workout</Text>
@@ -316,7 +336,26 @@ export default function App() {
           name="New Workout"
           component={NewWorkoutScreen}
           options={{
-            headerLeft: discardWorkout,
+            // headerLeft: (props) => {
+            //   <HeaderBackButton
+            //     // {...props}
+            //     onPress={() => {
+            //       Alert.alert(
+            //         "Discard Workout",
+            //         "Going back will discard your current workout. Are you sure?",
+            //         [
+            //           { text: "Cancel", style: "cancel" },
+            //           { text: "OK", onPress: () => props.navigation.goBack() },
+            //         ]
+            //       );
+            //     }}
+            //   />;
+            // },
+            headerLeft: () => (
+              <TouchableOpacity>
+                <Text>Back</Text>
+              </TouchableOpacity>
+            ),
           }}
         />
       </Stack.Navigator>

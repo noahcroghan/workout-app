@@ -53,8 +53,12 @@ export const styles = StyleSheet.create({
   bodyText: {
     fontSize: 16,
   },
-  // Make this better
+  italicText: {
+    fontStyle: "italic",
+    fontSize: 13,
+    marginBottom: 10,
+  },
   logText: {
-    fontSize: 12,
+    fontSize: 15,
   },
 });
