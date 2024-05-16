@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-// import { HeaderBackButton } from "@react-navigation/elements";
 import { Ionicons } from "@expo/vector-icons";
 import { Dropdown } from "react-native-element-dropdown";
 import { styles } from "./Styles.js";
@@ -25,24 +24,7 @@ const db = SQLite.openDatabase("lifts.db");
 // IDEA: Full Android, iOS, Web compatibility
 // IDEA: If iOS/Android, save to SQLite, if web, save to local storage
 // TODO: Rewrite with Expo SDK 51 (currently 50)
-// TODO: Move other things to separate files, change file structure
-
-// function discardWorkout({ navigation }) {
-//   return (
-//     <HeaderBackButton
-//       onPress={() => {
-//         Alert.alert(
-//           "Discard Workout",
-//           "Going back will discard your current workout. Are you sure?",
-//           [
-//             { text: "Cancel", style: "cancel" },
-//             { text: "OK", onPress: () => navigation.goBack() },
-//           ]
-//         );
-//       }}
-//     />
-//   );
-// }
+// TODO: Move other things to separate files, improve file structure
 
 function NewWorkoutScreen({ route, navigation }) {
   const insertIntoDB = (oneRepMax, setsDesired, repsCompleted, lift) => {
@@ -128,8 +110,8 @@ function WorkoutLog({ priorWorkouts, onPressItem }) {
             onPress={() => onPressItem(workout.date)}
           >
             <Text style={styles.logText}>
-              ({JD.fromJdn(workout.date).format("M-D-YY")}) 1RM:{" "}
-              {workout.oneRepMax} Sets: {workout.setsDesired} Total Reps:{" "}
+              {JD.fromJdn(workout.date).format("M-D-YY")} 1RM:{" "}
+              {workout.oneRepMax} lbs Sets: {workout.setsDesired} Total Reps:{" "}
               {workout.repsCompleted} {workout.lift}
             </Text>
           </TouchableOpacity>
@@ -144,8 +126,6 @@ function HomeScreen({ navigation }) {
   const [setsDesired, setSetsDesired] = useState(0);
   const [lift, setLift] = useState(null);
   const [priorWorkouts, setPriorWorkouts] = useState(null);
-  // const setsDesiredRef = useRef(null); // Only used to clear text input
-  // const oneRepMaxRef = useRef(null); // Only used to clear text input
 
   // Updates on component mount and when the user returns focus to home screen
   useEffect(() => {
@@ -161,8 +141,8 @@ function HomeScreen({ navigation }) {
           // console.log(JSON.stringify(rows))
           // );
         },
-        (error) => console.log("Error: Select from lifts table\n" + error),
-        () => console.log("Success: Select from lifts table")
+        (error) => console.log("Error: Select from lifts table\n" + error)
+        // () => console.log("Success: Select from lifts table")
       );
     });
 
@@ -233,8 +213,6 @@ function HomeScreen({ navigation }) {
           onChangeText={setOneRepMax}
           inputMode={"numeric"}
           returnKeyType={"done"}
-          // value={oneRepMax}
-          // ref={oneRepMaxRef}
         />
         <TextInput
           style={styles.input}
@@ -243,8 +221,6 @@ function HomeScreen({ navigation }) {
           onChangeText={setSetsDesired}
           inputMode={"numeric"}
           returnKeyType={"done"}
-          // value={setsDesired}
-          // ref={setsDesiredRef}
         />
         <Dropdown
           style={styles.dropdown}
@@ -267,12 +243,6 @@ function HomeScreen({ navigation }) {
           style={styles.button}
           onPress={() => {
             generateWorkout(oneRepMax, setsDesired, lift);
-            // Clear input fields
-            // oneRepMaxRef.current.clear();
-            // setsDesiredRef.current.clear();
-            // setOneRepMax(0);
-            // setSetsDesired(0);
-            // setLift(null);
           }}
         >
           <Text style={styles.buttonText}>New Workout</Text>
@@ -286,7 +256,6 @@ function HomeScreen({ navigation }) {
             {
               text: "OK",
               onPress: () => {
-                console.log(date);
                 db.transaction(
                   (tx) => {
                     tx.executeSql(
@@ -301,7 +270,7 @@ function HomeScreen({ navigation }) {
                     );
                   },
                   (error) => console.log("Error: Delete from lifts\n" + error),
-                  () => console.log("Success: Delete from lifts")
+                  () => console.log("Success: Delete from lifts " + date)
                 );
               },
             },
@@ -323,8 +292,8 @@ export default function App() {
           "CREATE TABLE IF NOT EXISTS lifts (date real primary key not null, oneRepMax integer, setsDesired integer, repsCompleted integer, lift text)"
         );
       },
-      (error) => console.log("Error: Create table\n" + error),
-      () => console.log("Success: Lifts table was created (or already existed)")
+      (error) => console.log("Error: Create table\n" + error)
+      // () => console.log("Success: Lifts table was created (or already existed)")
     );
   }, []);
 
@@ -335,28 +304,28 @@ export default function App() {
         <Stack.Screen
           name="New Workout"
           component={NewWorkoutScreen}
-          options={{
-            // headerLeft: (props) => {
-            //   <HeaderBackButton
-            //     // {...props}
-            //     onPress={() => {
-            //       Alert.alert(
-            //         "Discard Workout",
-            //         "Going back will discard your current workout. Are you sure?",
-            //         [
-            //           { text: "Cancel", style: "cancel" },
-            //           { text: "OK", onPress: () => props.navigation.goBack() },
-            //         ]
-            //       );
-            //     }}
-            //   />;
-            // },
+          options={({ navigation }) => ({
             headerLeft: () => (
-              <TouchableOpacity>
-                <Text>Back</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.prompt();
+                  Alert.alert(
+                    "Dismiss Workout",
+                    "Returning to home screen will dismiss the current workout. Are you sure?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "OK",
+                        onPress: () => navigation.goBack(),
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="arrow-back" size={24} color="black" />
               </TouchableOpacity>
             ),
-          }}
+          })}
         />
       </Stack.Navigator>
     </NavigationContainer>

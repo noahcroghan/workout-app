@@ -59,6 +59,6 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   logText: {
-    fontSize: 15,
+    fontSize: 14,
   },
 });
