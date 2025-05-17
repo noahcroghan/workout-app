@@ -17,4 +17,4 @@
 
 Go to https://snack.expo.dev/@nc759743/workout-app?platform=android to see a demo of the app on a virtual machine.
 
-Optionally, if you prefer to develop locally, you can instead clone this Git repository, install [Node.js](https://nodejs.org/en), and run the app with `npx expo start`, which supports opening the app in a local [Android virtual machine](https://docs.expo.dev/workflow/android-studio-emulator/), or Expo Go (assuming the above aforementioned restrictions about SDK version)
+Optionally, if you prefer to develop locally, you can instead clone this Git repository, install [Node.js](https://nodejs.org/en), and run the app with `npx expo start`, which supports opening the app in a local [Android virtual machine](https://docs.expo.dev/workflow/android-studio-emulator/), or [Expo Go](https://expo.dev/go) (note that iOS is not supported due to not using the latest Expo SDK).
